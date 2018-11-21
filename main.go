@@ -1,43 +1,27 @@
-// https://tour.golang.org/
-// https://www.golang-book.com/books/intro
-
-// go get github.com/parnurzeal/gorequest
-// go get github.com/PuerkitoBio/goquery
-// go get gopkg.in/go-playground/pool.v3
-
 package main
 
 import (
     "log"
     // "fmt"
     "time"
-    "net/http"
-    "strings"
+    // "strings"
     // "sync"
+    // "github.com/jawher/mow.cli"
     "github.com/parnurzeal/gorequest"
-    "github.com/PuerkitoBio/goquery"
+    // "github.com/PuerkitoBio/goquery"
     "gopkg.in/go-playground/pool.v3"
 )
-
-type Url struct {
-    uri string
-    visited bool
-    response gorequest.Response
-    body string
-    duration time.Duration
-}
 
 var visitedURL map[string]Url = make(map[string]Url)
 var request = gorequest.New().Timeout(1000 * time.Millisecond)
 
-var baseURL string = "http://www.exemple.com/"
-
+// var baseURL string = "http://www.exemple.com/"
+var baseURL string = "https://getpsalm.org/"
 
 func main() {
     log.Println("Starting...")
 
-
-    p := pool.NewLimited(10)
+    p := pool.NewLimited(4)
     batch := p.Batch()
     defer p.Close()
 
@@ -85,9 +69,9 @@ func main() {
     }
 
     // log.Println(visitedURL[baseURL])
-    log.Println(nop)
-    log.Println(yep)
-    log.Println(len(visitedURL))
+    log.Println("Not done", nop)
+    log.Println("Done ", yep)
+    log.Println("Visited URLs", len(visitedURL))
 }
 
 func handleUrl(url Url) pool.WorkFunc  {
@@ -105,59 +89,4 @@ func handleUrl(url Url) pool.WorkFunc  {
 
         return url, nil // everything ok, send nil as 2nd parameter if no error
     }
-}
-
-func getUrl(url string) (gorequest.Response, string, time.Duration, []error) {
-    timeStart := time.Now()
-
-    response, body, err := request.
-        Get(url).
-        RedirectPolicy(func(req gorequest.Request, via []gorequest.Request) error {
-            return http.ErrUseLastResponse
-        }).End()
-
-    return response, body, time.Since(timeStart), err
-}
-
-func (url *Url) parseUrl() ([]error) {
-    response, body, duration, requestError := getUrl(url.uri)
-
-    url.response = response
-    url.body = body
-    url.duration = duration
-    url.visited = true
-
-    if len(requestError) > 0 {
-        return requestError
-    }
-
-    responseCode := response.StatusCode
-    location, locationExist := response.Header["Location"]
-
-    if responseCode == 301 && locationExist {
-        location := location[0]
-
-        visitedURL[location] = Url{uri: location}
-
-        return nil
-    }
-
-    // Parse
-    doc, parserErr := goquery.NewDocumentFromResponse(response)
-    if parserErr != nil {
-        errors := []error{parserErr}
-        return errors
-    }
-
-    // Find the review items
-    // log.Println(doc.Find("title").Text())
-    doc.Find("a").Each(func(i int, element *goquery.Selection) {
-        link, linkExist := element.Attr("href")
-        _, exists := visitedURL[link]
-        if linkExist && link != "#" && strings.HasPrefix(link, baseURL) && ! exists {
-            visitedURL[link] = Url{uri: link}
-        }
-    })
-
-    return nil
 }
